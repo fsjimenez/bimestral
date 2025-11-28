@@ -22,16 +22,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   void _refreshOrders() {
-    setState(() {
-      _orders = DatabaseHelper.instance.readAllOrders();
-    });
+    if (mounted) {
+      setState(() {
+        _orders = DatabaseHelper.instance.readAllOrders();
+      });
+    }
   }
 
   Future<void> _confirmOrder() async {
-    if (!mounted) return;
     final orders = await _orders;
+    if (!mounted) return; // Check after await
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     if (orders.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(content: Text('No hay pedidos para confirmar')),
       );
       return;
@@ -43,26 +49,23 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     try {
       final response = await http.post(url, headers: headers, body: body);
+      if (!mounted) return; // Check after await
 
       if (response.statusCode == 201) {
-        // Clear local database
         for (var order in orders) {
           await DatabaseHelper.instance.delete(order.id!);
         }
         _refreshOrders();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Pedido confirmado con éxito!')),
         );
-        // Navigate back to home
-        if (!mounted) return;
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        navigator.popUntil((route) => route.isFirst);
       } else {
-        throw Exception('Failed to confirm order');
+        throw Exception('Failed to confirm order: ${response.body}');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Error al confirmar el pedido: $e')),
       );
     }
@@ -71,10 +74,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Future<void> _showEditDialog(Order order) async {
     final observationsController = TextEditingController(text: order.observations);
 
-    if (!mounted) return;
     return showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Editar Observación'),
           content: TextField(
@@ -85,7 +87,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             TextButton(
               child: const Text('Cancelar'),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
             ),
             TextButton(
@@ -100,7 +102,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 await DatabaseHelper.instance.update(newOrder);
                 _refreshOrders();
                 if (!mounted) return;
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
             ),
           ],

@@ -25,22 +25,40 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 
   void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
+
     setState(() {
       _selectedIndex = index;
     });
+
     switch (index) {
       case 0:
         Navigator.pushReplacementNamed(context, '/home');
         break;
-      case 1: // Current screen
-        break;
       case 2:
         Navigator.push(context, MaterialPageRoute(builder: (context) => const OrdersScreen()));
         break;
-      case 3:
-        // Implement search functionality if needed
-        break;
+      // case 1 and 3 do nothing for now
     }
+  }
+
+  Future<void> _addOrder() async {
+    final order = Order(
+      name: widget.item.name,
+      price: widget.item.price,
+      observations: _observationsController.text,
+    );
+    await DatabaseHelper.instance.create(order);
+    
+    if (!mounted) return; // Check after await
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    messenger.showSnackBar(
+      const SnackBar(content: Text('¡Pedido agregado!')),
+    );
+    navigator.pop();
   }
 
   @override
@@ -161,20 +179,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: () async {
-                            final order = Order(
-                              name: widget.item.name,
-                              price: widget.item.price,
-                              observations: _observationsController.text,
-                            );
-                            await DatabaseHelper.instance.create(order);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('¡Pedido agregado!')),
-                              );
-                              Navigator.pop(context);
-                            }
-                          },
+                          onPressed: _addOrder,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orange,
                             foregroundColor: Colors.white,
